@@ -11,6 +11,7 @@ Patrick Crawford 7 Connor McEwen.
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <semaphore.h>
+#include <time.h>
 
 #include <limits.h>
 #include <fcntl.h>
@@ -31,6 +32,12 @@ char buffer[256];	// idk, trying to make signal handling work..
 struct sockaddr_in serv_addr, cli_addr;
 
 sem_t *mutex;
+
+void easy_print(int sock, char* str) {
+	char tmpb[50]={0x0};
+	int n = sprintf(tmpb, str);
+	write(newsockfd,tmpb,n);
+}
 
 
 
@@ -53,7 +60,7 @@ void clientHandle(int newsockfd) {
 	n = write(newsockfd,tmp,sizeof(tmp));
 	
 	// valid choices for either client or server
-	const char *gameChoices[] = {"ROCK","PAPER","SCISSORS"};
+	const char *gameChoices[] = {"ROCK\n","PAPER\n","SCISSORS\n"};
 	// write initial message
 	char tmpb[50]={0x0};
 	sprintf(tmpb,"Enter one of {ROCK,PAPER,SCISSORS}: ");
@@ -69,43 +76,56 @@ void clientHandle(int newsockfd) {
 	
 	int clientChoice = 3;
 	// handle the input
-    if (buffer[0] !='\0'){
+    if (sizeof(buffer) != 0){
+
+    	srand (time(NULL));
+
     	int serverChoice = rand() % 3;
-    	if (strcmp (buffer, gameChoices[0]) == 0) {
+
+    	if (strncmp (buffer, gameChoices[0], 4) == 0) {
     		clientChoice = 0;
+    		easy_print(newsockfd, "Client Choice: ROCK\n");
     	}
-    	else if (strcmp (buffer, gameChoices[1]) == 0) {
+    	else if (strncmp (buffer, gameChoices[1], 5) == 0) {
     		clientChoice = 1;
+    		easy_print(newsockfd, "Client Choice: PAPER\n");
     	}
-    	else if (strcmp (buffer, gameChoices[2]) == 0) {
+    	else if (strncmp (buffer, gameChoices[2], 8) == 0) {
     		clientChoice = 2;
+    		easy_print(newsockfd, "Client Choice: Scissors\n");
     	}
+
+    	easy_print(newsockfd, "Server Choice: ");
+    	easy_print(newsockfd, gameChoices[serverChoice]);
 
     	if (clientChoice != 3) {
     		if (clientChoice == serverChoice) {
-    			sprintf(tmpb, "Tie!\n");
+					easy_print(newsockfd, "Tie!\n");
     		}
-    		else if ((clientChoice - serverChoice) % 3 == 1) {
-    			sprintf(tmpb, "client wins!\n");
+    		else if (abs(clientChoice - serverChoice) % 3 == 2) {
+					easy_print(newsockfd,"Client wins!\n");
+	
     			sem_wait(mutex);
     			clientWins++;
     			sem_post(mutex);
     		}
     		else {
-    			sprintf(tmpb, "server wins!\n");
+					easy_print(newsockfd, "Server wins!\n");
+
     			sem_wait(mutex);
     			serverWins++;
     			sem_post(mutex);
     		}
     	}
+
     	else {
-    		sprintf(tmpb, "input wasn't recognized\n");
+    		easy_print(newsockfd, "input wasn't recognized\n");
     	}
     }
     else{
     	// skip? / general handling for not valid input
     }
-    write(newsockfd,tmpb,sizeof(tmpb));
+    //write(newsockfd,tmpb,sizeof(tmpb));
 	
 }
 
