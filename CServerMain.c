@@ -60,6 +60,7 @@ void clientHandle(int newsockfd) {
 	
 	n = write(newsockfd,tmpb,sizeof(tmpb));
 	
+	
 	// to read from the client....
 	bzero(buffer,256);
 	n = read(newsockfd,buffer,255);
@@ -81,32 +82,29 @@ void clientHandle(int newsockfd) {
 
     	if (clientChoice != 3) {
     		if (clientChoice == serverChoice) {
-    			sprintf(tmpb, "Tie!");
+    			sprintf(tmpb, "Tie!\n");
     		}
     		else if ((clientChoice - serverChoice) % 3 == 1) {
-    			sprintf(tmpb, "client wins!");
+    			sprintf(tmpb, "client wins!\n");
     			sem_wait(mutex);
     			clientWins++;
     			sem_post(mutex);
     		}
     		else {
-    			sprintf(tmpb, "server wins!");
+    			sprintf(tmpb, "server wins!\n");
     			sem_wait(mutex);
     			serverWins++;
     			sem_post(mutex);
     		}
     	}
     	else {
-    		sprintf(tmpb, "input wasn't recognized");
+    		sprintf(tmpb, "input wasn't recognized\n");
     	}
     }
     else{
     	// skip? / general handling for not valid input
     }
-    
-    // after finished everything..
-    close(newsockfd);
-    exit(0);
+    write(newsockfd,tmpb,sizeof(tmpb));
 	
 }
 
@@ -120,6 +118,7 @@ void sigintHandler(int sig_num)
     signal(SIGINT, sigintHandler);
     
     // technically should make this a try statement...
+    runServer = 0;
     close(sockfd);
     close(newsockfd);
     
@@ -182,31 +181,39 @@ int main(int argc, char *argv[])
 		newsockfd = accept(sockfd, 
 	        (struct sockaddr *) &cli_addr, 
 	        &clilen);
-		if (newsockfd < 0) 
-			error("ERROR on accept");
-		
 		// only now has the client been confirmed
 		clientCount++;
 		
 		//write on the server side that we connected to a client, (before forking?)
 		printf("Servicing client %i\n",clientCount);
+		//printf("THE PID: %i, global: %i\n",(int) getpid(),globalPpid);
 		fflush(stdout);
 		
 		if (n < 0) {
-			error("ERROR writing to socket");
+			error("ERROR on accept");
 		}
 		else{
 		
-			// ########### SHOULD FORK HERE ############
-			int fk = fork();
+			// ########### FORK HERE ############
+			//int fk = fork();
 			
-			if(fk == 0){
-				// the child process?
-				clientHandle(newsockfd);
+			int pid;
+			if((pid = fork()) == -1){
+				//in case of failure
+	            close(newsockfd);
+	            continue;
+	        }
+			else if(pid == 0){
+				// the child process
+				//clientHandle(newsockfd);
+				close(newsockfd);
+				runServer = 0;
+				break;
 			}
 			else{
 				// parent stuff? it has a duplicated reference to the socket..?
-				//close(newsockfd);
+				close(newsockfd);
+				continue;
 			}
 		}
 
