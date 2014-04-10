@@ -47,8 +47,9 @@ void clientHandle(int newsockfd) {
 	int n;
 	
 	// printing stuff to our client
-	char tmp[50]={0x0};
-	sprintf(tmp,"Client connected, servicing %11d\n", clientCount);
+	char tmp[100]={0x0};
+	sprintf(tmp,"Client connected, servicing%8d\nClient wins:%4d\nServer wins:%4d\n", clientCount,clientWins,serverWins);
+	//sprintf(tmp,"Client connected, servicing %11d\n", clientCount);
 	n = write(newsockfd,tmp,sizeof(tmp));
 	
 	// valid choices for either client or server
@@ -205,7 +206,7 @@ int main(int argc, char *argv[])
 	        }
 			else if(pid == 0){
 				// the child process
-				//clientHandle(newsockfd);
+				clientHandle(newsockfd);
 				close(newsockfd);
 				runServer = 0;
 				break;
