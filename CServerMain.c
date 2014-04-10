@@ -10,6 +10,7 @@ Patrick Crawford 7 Connor McEwen.
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <semaphore.h>
 
 #include <limits.h>
 #include <fcntl.h>
@@ -29,6 +30,8 @@ int globalPpid;		// the global PID, needs to be global for signal handling...
 char buffer[256];	// idk, trying to make signal handling work..
 struct sockaddr_in serv_addr, cli_addr;
 
+sem_t *mutex;
+
 
 
 void error(const char *msg)
@@ -38,7 +41,7 @@ void error(const char *msg)
 }
 
 // after fork, the actual handler for the client to be cleaner
-void clientHandle(int newsockfd){
+void clientHandle(int newsockfd) {
 	
 	// the write-to/from data integer
 	int n;
@@ -62,15 +65,44 @@ void clientHandle(int newsockfd){
 	n = read(newsockfd,buffer,255);
 	if (n < 0) error("ERROR reading from socket");
 	
-	
+	int clientChoice = 3;
 	// handle the input
-    /*
-    if (n[0] !='\0'){
+    if (buffer[0] !='\0'){
+    	int serverChoice = rand() % 3;
+    	if (strcmp (buffer, gameChoices[0]) == 0) {
+    		clientChoice = 0;
+    	}
+    	else if (strcmp (buffer, gameChoices[1]) == 0) {
+    		clientChoice = 1;
+    	}
+    	else if (strcmp (buffer, gameChoices[2]) == 0) {
+    		clientChoice = 2;
+    	}
+
+    	if (clientChoice != 3) {
+    		if (clientChoice == serverChoice) {
+    			sprintf(tmpb, "Tie!");
+    		}
+    		else if ((clientChoice - serverChoice) % 3 == 1) {
+    			sprintf(tmpb, "client wins!");
+    			sem_wait(mutex);
+    			clientWins++;
+    			sem_post(mutex);
+    		}
+    		else {
+    			sprintf(tmpb, "server wins!");
+    			sem_wait(mutex);
+    			serverWins++;
+    			sem_post(mutex);
+    		}
+    	}
+    	else {
+    		sprintf(tmpb, "input wasn't recognized");
+    	}
     }
     else{
     	// skip? / general handling for not valid input
     }
-    */
     
     // after finished everything..
     close(newsockfd);
@@ -134,6 +166,15 @@ int main(int argc, char *argv[])
 		sizeof(serv_addr)) < 0) 
 		error("ERROR on binding");
 	listen(sockfd,5);
+
+	//initialize semaphore
+  mutex = sem_open("mySem",O_CREAT,0644,1);
+  if(mutex == SEM_FAILED)
+    {
+      perror("unable to create semaphore");
+      sem_unlink("mySem");
+      exit(-1);
+    }
 	
 	printf("\nStarting server...\n");
 	while (runServer){
