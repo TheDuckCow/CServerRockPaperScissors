@@ -20,18 +20,16 @@ Patrick Crawford 7 Connor McEwen.
 
 #define MAX_LINE 20
 
-int clientCount;	// counts the number of clients so far
-int clientWins;		// number of times client "won"
-int serverWins;		// number of times server "won"
-
-int runServer;		// whether to continue running the server
-int sockfd;			// the primary, main server port
-int newsockfd;		// the child or newly connected thing
 int globalPpid;		// the global PID, needs to be global for signal handling...
 char buffer[256];	// idk, trying to make signal handling work..
 struct sockaddr_in serv_addr, cli_addr;
 
-sem_t *mutex;
+int sockfd;				// the primary, main server port
+int newsockfd;		// the child or newly connected thing
+int runServer;
+int clientCount;
+
+time_t t, current;
 
 void easy_print(int sock, char* str) {
 	char tmpb[50]={0x0};
@@ -48,14 +46,16 @@ void error(const char *msg)
 }
 
 // after fork, the actual handler for the client to be cleaner
-void clientHandle(int newsockfd) {
+void clientHandle(int newsockfd, sem_t *mutex) {
 	
 	// the write-to/from data integer
 	int n;
 	
 	// printing stuff to our client
-	char tmp[100]={0x0};
-	sprintf(tmp,"Client connected, servicing%8d\nClient wins:%4d\nServer wins:%4d\n", clientCount,clientWins,serverWins);
+	char tmp[200]={0x0};
+	time(&current);
+
+	sprintf(tmp,"Client connected, servicing%8d\nServer has been running for %f seconds.\n", clientCount, difftime(current, t));
 	//sprintf(tmp,"Client connected, servicing %11d\n", clientCount);
 	n = write(newsockfd,tmp,sizeof(tmp));
 	
@@ -92,7 +92,7 @@ void clientHandle(int newsockfd) {
     	}
     	else if (strncmp (buffer, gameChoices[2], 8) == 0) {
     		clientChoice = 2;
-    		easy_print(newsockfd, "Client Choice: Scissors\n");
+    		easy_print(newsockfd, "Client Choice: SCISSORS\n");
     	}
 
     	easy_print(newsockfd, "Server Choice: ");
@@ -104,17 +104,9 @@ void clientHandle(int newsockfd) {
     		}
     		else if (abs(clientChoice - serverChoice) % 3 == 2) {
 					easy_print(newsockfd,"Client wins!\n");
-	
-    			sem_wait(mutex);
-    			clientWins++;
-    			sem_post(mutex);
     		}
     		else {
 					easy_print(newsockfd, "Server wins!\n");
-
-    			sem_wait(mutex);
-    			serverWins++;
-    			sem_post(mutex);
     		}
     	}
 
@@ -155,6 +147,15 @@ int main(int argc, char *argv[])
 {
 	// set the global parent ID:
 	globalPpid = getpid();
+
+	time(&t);
+
+	clientCount = 0;	// counts the number of clients so far
+	int ties = 0;
+
+	runServer = 1;		// whether to continue running the server
+
+	sem_t *mutex;
 	
 	// signal handling
 	signal(SIGINT, sigintHandler);
@@ -162,10 +163,7 @@ int main(int argc, char *argv[])
 	// and the rest of the things...
 	int portno;
 	socklen_t clilen;
-	clientCount = 0;
-	clientWins = 0;
-	serverWins = 0;
-	runServer = 1;
+
 	int n;
 	if (argc < 2) {
 		fprintf(stderr,"ERROR, no port provided\n");
@@ -226,7 +224,7 @@ int main(int argc, char *argv[])
 	        }
 			else if(pid == 0){
 				// the child process
-				clientHandle(newsockfd);
+				clientHandle(newsockfd, mutex);
 				close(newsockfd);
 				runServer = 0;
 				break;
