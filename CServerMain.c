@@ -10,7 +10,6 @@ Patrick Crawford 7 Connor McEwen.
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <semaphore.h>
 #include <time.h>
 
 #include <limits.h>
@@ -46,7 +45,7 @@ void error(const char *msg)
 }
 
 // after fork, the actual handler for the client to be cleaner
-void clientHandle(int newsockfd, sem_t *mutex) {
+void clientHandle(int newsockfd) {
 	
 	// the write-to/from data integer
 	int n;
@@ -138,9 +137,7 @@ void sigintHandler(int sig_num)
     // kill ALL children processes, which aren't the parent.
     if (getpid()!=globalPpid){
     	exit(0);
-    }
-    
-    
+    }   
 }
 
 int main(int argc, char *argv[])
@@ -151,11 +148,7 @@ int main(int argc, char *argv[])
 	time(&t);
 
 	clientCount = 0;	// counts the number of clients so far
-	int ties = 0;
-
 	runServer = 1;		// whether to continue running the server
-
-	sem_t *mutex;
 	
 	// signal handling
 	signal(SIGINT, sigintHandler);
@@ -184,15 +177,6 @@ int main(int argc, char *argv[])
 		sizeof(serv_addr)) < 0) 
 		error("ERROR on binding");
 	listen(sockfd,5);
-
-	//initialize semaphore
-  mutex = sem_open("mySem",O_CREAT,0644,1);
-  if(mutex == SEM_FAILED)
-    {
-      perror("unable to create semaphore");
-      sem_unlink("mySem");
-      exit(-1);
-    }
 	
 	printf("\nStarting server...\n");
 	while (runServer){
@@ -224,7 +208,7 @@ int main(int argc, char *argv[])
 	        }
 			else if(pid == 0){
 				// the child process
-				clientHandle(newsockfd, mutex);
+				clientHandle(newsockfd);
 				close(newsockfd);
 				runServer = 0;
 				break;
